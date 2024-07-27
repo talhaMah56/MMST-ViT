@@ -32,13 +32,15 @@ def get_args_parser():
 
     parser.add_argument('--batch_size', default=32, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
-    parser.add_argument('--embed_dim', default=512, type=int, help='embed dimensions')
+    parser.add_argument('--embed_dim', default=512,
+                        type=int, help='embed dimensions')
     parser.add_argument('--epochs', default=200, type=int)
     parser.add_argument('--model', default='pvt_tiny', type=str, metavar='MODEL',
                         help='Name of backbone model to train')
     parser.add_argument('--accum_iter', default=1, type=int,
                         help='Accumulate gradient iterations (for increasing the effective batch size under memory constraints)')
-    parser.add_argument('--input_size', default=224, type=int, help='images input size')
+    parser.add_argument('--input_size', default=224,
+                        type=int, help='images input size')
 
     parser.add_argument('--norm_pix_loss', action='store_true',
                         help='Use (per-patch) normalized pixels as targets for computing loss')
@@ -87,8 +89,10 @@ def get_args_parser():
                         help='url used to set up distributed training')
 
     # dataset
-    parser.add_argument('-dr', '--root_dir', type=str, default='/mnt/data/Tiny CropNet')
-    parser.add_argument('-tf', '--data_file', type=str, default='./data/soybean_train.json')
+    parser.add_argument('-dr', '--root_dir', type=str,
+                        default='/mnt/data/Tiny CropNet')
+    parser.add_argument('-tf', '--data_file', type=str,
+                        default='./data/soybean_train.json')
     parser.add_argument('-sf', '--save_freq', type=int, default=5)
 
     return parser
@@ -100,6 +104,7 @@ def main(args):
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
     print("{}".format(args).replace(', ', ',\n'))
 
+    args.device = 'cuda:0'
     device = torch.device(args.device)
 
     # fix the seed for reproducibility
@@ -152,7 +157,8 @@ def main(args):
         drop_last=True,
     )
 
-    model = PVTSimCLR(args.model, out_dim=args.embed_dim, context_dim=9, pretrained=True)
+    model = PVTSimCLR(args.model, out_dim=args.embed_dim,
+                      context_dim=9, pretrained=True)
 
     model.to(device)
 
@@ -171,16 +177,19 @@ def main(args):
     print("effective batch size: %d" % eff_batch_size)
 
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
+        model = torch.nn.parallel.DistributedDataParallel(
+            model, device_ids=[args.gpu], find_unused_parameters=True)
         model_without_ddp = model.module
 
-    param_groups = optim_factory.add_weight_decay(model_without_ddp, args.weight_decay)
+    param_groups = optim_factory.add_weight_decay(
+        model_without_ddp, args.weight_decay)
 
     optimizer = torch.optim.AdamW(param_groups, lr=args.lr, betas=(0.9, 0.95))
     print(optimizer)
     loss_scaler = NativeScaler()
 
-    misc.load_model(args=args, model_without_ddp=model_without_ddp, optimizer=optimizer, loss_scaler=loss_scaler)
+    misc.load_model(args=args, model_without_ddp=model_without_ddp,
+                    optimizer=optimizer, loss_scaler=loss_scaler)
 
     print(f"Start training for {args.epochs} epochs")
     start_time = time.time()
@@ -221,7 +230,8 @@ def train_one_epoch(model: torch.nn.Module,
                     log_writer=None, args=None):
     model.train(True)
     metric_logger = misc.MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', misc.SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    metric_logger.add_meter('lr', misc.SmoothedValue(
+        window_size=1, fmt='{value:.6f}'))
     batch_size = args.batch_size
 
     accum_iter = args.accum_iter
@@ -235,17 +245,20 @@ def train_one_epoch(model: torch.nn.Module,
     total_step = len(data_loader_sentinel) - 1
     for data_iter_step, (x, y) in enumerate(zip(data_loader_sentinel, data_loader_hrrr)):
 
-        fips, max_mem = x[1][0], torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
+        fips, max_mem = x[1][0], torch.cuda.max_memory_allocated() / \
+            (1024.0 * 1024.0)
         num_grids = tuple(x[0].shape)[2]
         print("Epoch: [{}]  [ {} / {}]  FIPS Code: {}  Number of Grids: {}  Max Mem: {}"
               .format(epoch, data_iter_step, total_step, fips, num_grids, f"{max_mem:.0f}"))
 
         # we use a per iteration (instead of per epoch) lr scheduler
         if data_iter_step % accum_iter == 0:
-            lr_sched.adjust_learning_rate(optimizer, data_iter_step / len(data_loader_sentinel) + epoch, args)
+            lr_sched.adjust_learning_rate(
+                optimizer, data_iter_step / len(data_loader_sentinel) + epoch, args)
 
         # prevent the number of grids from being too large to cause out of memory
-        train_loader = sentinel_wrapper.get_data_loader(x[0], y[0], batch_size=batch_size)
+        train_loader = sentinel_wrapper.get_data_loader(
+            x[0], y[0], batch_size=batch_size)
 
         for xi, xj, ys in train_loader:
             xi = xi.to(device, non_blocking=True)
@@ -276,8 +289,10 @@ def train_one_epoch(model: torch.nn.Module,
                 """ We use epoch_1000x as the x-axis in tensorboard.
                 This calibrates different curves when batch size changes.
                 """
-                epoch_1000x = int((data_iter_step / len(data_loader_sentinel) + epoch) * 1000)
-                log_writer.add_scalar('train_loss', loss_value_reduce, epoch_1000x)
+                epoch_1000x = int(
+                    (data_iter_step / len(data_loader_sentinel) + epoch) * 1000)
+                log_writer.add_scalar(
+                    'train_loss', loss_value_reduce, epoch_1000x)
                 log_writer.add_scalar('lr', lr, epoch_1000x)
 
     # gather the stats from all processes

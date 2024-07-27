@@ -1,10 +1,11 @@
 import json
 
 import pandas as pd
+import os
 
 
 def build_soybean_train(target_fips=None):
-    csv_path = "./../input/county_info_2021.csv"
+    csv_path = "./input/county_info_2021.csv"
     df = pd.read_csv(csv_path)
 
     if target_fips:
@@ -13,7 +14,11 @@ def build_soybean_train(target_fips=None):
     counties = df.to_json(orient='records', lines=False)
     counties = json.loads(counties)
 
-    path = "./../data/soybean_train.json"
+    path = "./data/soybean_train.json"
+
+    # Check if the file already exists and delete it if it does
+    if os.path.exists(path):
+        os.remove(path)
 
     data = []
     for county_info in counties:
@@ -26,7 +31,7 @@ def build_soybean_train(target_fips=None):
 
 
 def build_soybean_val(target_fips=None):
-    csv_path = "./../input/county_info_2022.csv"
+    csv_path = "./input/county_info_2022.csv"
     df = pd.read_csv(csv_path)
 
     if target_fips:
@@ -35,7 +40,11 @@ def build_soybean_val(target_fips=None):
     counties = df.to_json(orient='records', lines=False)
     counties = json.loads(counties)
 
-    path = "./../data/soybean_val.json"
+    path = "./data/soybean_val.json"
+
+    # Check if the file already exists and delete it if it does
+    if os.path.exists(path):
+        os.remove(path)
 
     data = []
     for county_info in counties:
@@ -48,9 +57,11 @@ def build_soybean_val(target_fips=None):
 
 
 def get_json_obj(year, county_info):
-    fips, county, state = str(county_info["FIPS"]), county_info["County"], county_info["State"]
+    fips, county, state = str(
+        county_info["FIPS"]), county_info["County"], county_info["State"]
 
-    short_term = get_short_HRRR_obj(state, fips, year, months=[i for i in range(4, 10)])
+    short_term = get_short_HRRR_obj(state, fips, year, months=[
+                                    i for i in range(4, 10)])
 
     long_term_years = ["2017", "2018", "2019", "2020", "2021"]
     long_term = get_long_HRRR_obj(state, fips, years=long_term_years)
@@ -85,7 +96,8 @@ def get_short_HRRR_obj(state, fips, year, months=[i + 1 for i in range(12)]):
     file_paths = []
     for month in months:
         month = str(month).zfill(2)
-        path = "WRF-HRRR/data/{}/{}/HRRR_{}_{}_{}-{}.csv".format(year, state, fips[:2], state, year, month)
+        path = "WRF-HRRR/data/{}/{}/HRRR_{}_{}_{}-{}.csv".format(
+            year, state, fips[:2], state, year, month)
         file_paths.append(path)
     return file_paths
 
@@ -96,14 +108,16 @@ def get_long_HRRR_obj(state, fips, years, months=[i + 1 for i in range(12)]):
         year_paths = []
         for month in months:
             month = str(month).zfill(2)
-            path = "WRF-HRRR/data/{}/{}/HRRR_{}_{}_{}-{}.csv".format(year, state, fips[:2], state, year, month)
+            path = "WRF-HRRR/data/{}/{}/HRRR_{}_{}_{}-{}.csv".format(
+                year, state, fips[:2], state, year, month)
             year_paths.append(path)
         file_paths.append(year_paths)
     return file_paths
 
 
 if __name__ == '__main__':
-    target_fips = ["22007", "22121", "22043", "22107", "28089", "28015", "17091", "17155", "19117", "19135"]
+    target_fips = ["22007", "22121", "22043", "22107",
+                   "28089", "28015", "17091", "17155", "19117", "19135"]
     target_fips = list(map(int, target_fips))
 
     build_soybean_train(target_fips=target_fips)
